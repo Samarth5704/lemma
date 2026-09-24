@@ -52,8 +52,7 @@ Minesweeper implementations.
 - The difficulty sizes and the number colour convention (1 blue, 2 green,
   3 red …) follow Windows Minesweeper convention. Colours are re-derived to
   pass contrast rather than copied.
-- The seeded PRNG is mulberry32. Confirm its author and licence before the
-  README cites it; do not cite from memory.
+- mulberry32 by Tommy Ettinger (2017), public domain via CC0, per the header of gist 46a874533244883189143505d203312c.
 
 ## Board sizes
 
@@ -116,7 +115,7 @@ No custom sizes. A config is rejected if `mines > width*height - 9`.
 index.html
 styles/tokens.css        colour, spacing, type tokens (light + dark)
 styles/app.css
-src/core/grid.js         dimensions, index<->xy, neighbours
+src/core/grid.js         dimensions, index<->xy, neighbours, computeCounts, flood
 src/core/rng.js          mulberry32(seed) -> () => float in [0,1)
 src/core/rules.js        newGame, reveal, flag, chord, status, elapsed, counter
 src/core/solver.js       deduce(state) to fixpoint, solveFrom(board, firstClick)
@@ -211,12 +210,18 @@ revealed. Each round records `{ step, rule, cells, clues }`. A cell opened by
 flood inherits the step of the reveal that triggered it. Step 0 is the
 first-click opening.
 
-`explainLoss(state, clickedIndex)` runs `deduce` on the state just before the
+`explainLoss(state, clickedIndex)` branches on the game's `lossCause`.
+
+For `lossCause: 'reveal'`, it runs `deduce` on the state just before the
 fatal click, without revealing anything new. It returns one of:
 
 - `{ provable: 'mine', clues }` — the clicked cell was provably a mine;
 - `{ provable: 'no', safe: index, clues }` — it wasn't provable, but this
   other cell was provably safe.
+
+For `lossCause: 'chord'`, the player did not guess the detonated cell; a flag
+the chord trusted was wrong. It identifies the wrong flag(s) adjacent to the
+chorded number instead of asking whether the detonated cell was provable.
 
 **Tests:**
 

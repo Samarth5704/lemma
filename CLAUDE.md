@@ -70,3 +70,5 @@ point.
 - `npm test`
 - `npm run contrast` (from phase 3a)
 - `npm run allowlist` (from phase 4)
+
+Test files are not typechecked (would require @types/node); this is deliberate.
