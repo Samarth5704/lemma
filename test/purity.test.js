@@ -57,3 +57,15 @@ test('no src/core file uses Math.random, Date, performance, crypto, localStorage
     assert.deepEqual(hits, [], `${f} uses ${hits.join(', ')}`);
   }
 });
+
+test('no src/core file holds module-level mutable state', () => {
+  // Top-level `let`/`var`, or a top-level const bound to a new Map, Set,
+  // array or typed array, would let one call affect the next.
+  const MUTABLE = /^(?:let|var)\s|^(?:export\s+)?const\s+\w+\s*=\s*(?:new\s+(?:Map|Set|WeakMap|WeakSet|Array|\w+Array)\b|\[)/gm;
+  const sample = ['let x = 1;', 'const m = new Map();', '  const inner = new Map();', 'const K = 3;'].join('\n');
+  assert.equal([...sample.matchAll(MUTABLE)].length, 2, 'the check catches top-level state and ignores nested state');
+  for (const f of readdirSync(CORE).filter((f) => f.endsWith('.js'))) {
+    const hits = [...stripComments(readFileSync(join(CORE, f), 'utf8')).matchAll(MUTABLE)].map((m) => m[0]);
+    assert.deepEqual(hits, [], `${f} declares module-level state: ${hits.join(', ')}`);
+  }
+});

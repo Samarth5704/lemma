@@ -16,6 +16,9 @@ point.
   localStorage, document, or window. Randomness is an injected `rng`, and time
   is an explicit `now`. A test enforces this, and the core tsconfig has no DOM
   lib.
+- `src/core/` holds no module-level mutable state (no top-level `let`, and
+  no top-level Map, Set or array), not even caches. A test enforces this.
+  Pass derived helpers such as the neighbour table down instead.
 - Neighbours come from (x, y) with per-axis bounds checks. Never compute them
   with flat-index offsets.
 - Mines are placed after the first click, excluding the clicked cell and its
@@ -27,6 +30,12 @@ point.
   detonate.
 - The solver is sound. It uses only revealed numbers, ignores flags, and
   ignores the global mine count.
+- The solver sees the board only through `visibleClues(game)`: an
+  `Int8Array` holding the count on each revealed cell and -1 for every
+  covered, flagged or detonated cell. `deduce(width, height, clues)` takes
+  nothing else. `visibleClues` is the only place that reads `counts` for the
+  solver; never pass mines, counts or flags into deduction. Only post-mortems
+  (explainLoss for a chord loss) may read mines.
 - The generator has a hard attempt cap and returns `{ ok: false }` when it is
   exhausted.
 - Derived values (proof trace, elapsed time, counter) are computed and never
@@ -68,6 +77,7 @@ point.
 
 - `npm run typecheck`
 - `npm test`
+- `npm run measure` (generator attempts and timing; phase 2)
 - `npm run contrast` (from phase 3a)
 - `npm run allowlist` (from phase 4)
 

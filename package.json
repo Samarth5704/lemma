@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "test": "node --test",
-    "typecheck": "tsc -p tsconfig.core.json && tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.core.json && tsc -p tsconfig.json",
+    "measure": "node scripts/measure.mjs"
   },
   "devDependencies": {
     "typescript": "^7.0.2"

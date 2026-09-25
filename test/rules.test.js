@@ -4,6 +4,9 @@ import {
   newGame, reveal, flag, chord, pause, resume, elapsed, status, counter,
 } from '../src/core/rules.js';
 import { neighbours, computeCounts, flood } from '../src/core/grid.js';
+import { placeMines } from '../src/core/generate.js';
+import { buildProof } from '../src/core/proof.js';
+import { mulberry32 } from '../src/core/rng.js';
 
 /** @typedef {import('../src/core/rules.js').Game} Game */
 /** @typedef {import('../src/core/rules.js').Result} Result */
@@ -27,7 +30,7 @@ function build(width, height, mineIdx, revealed = [], flagged = []) {
   return {
     width, height, mineCount: mineIdx.length, seed: 0,
     firstClick: revealed.length ? revealed[0] : null,
-    status: 'playing', detonated: null, lossCause: null, cells, mines,
+    status: 'playing', detonated: null, lossCause: null, lossAction: null, cells, mines,
     counts: computeCounts(width, height, mines),
     accumulatedMs: 0, resumedAt: 0,
   };
@@ -377,4 +380,55 @@ test('a win while paused keeps the accumulated time unchanged', () => {
   const { state } = reveal(g, 14, 9000);
   assert.equal(state.status, 'won');
   assert.equal(state.accumulatedMs, 2000);
+});
+
+// ---- phase 2: lossAction and generated boards ----
+
+test('lossAction is null on a new game and while playing', () => {
+  const g = newGame({ width: 9, height: 9, mines: 10 }, 1);
+  assert.equal(g.lossAction, null);
+  assert.equal(act(reveal, g, 40, 0).state.lossAction, null);
+});
+
+test('a reveal loss sets lossAction to the clicked cell', () => {
+  const g = build(W, H, MINES, [CENTRE]);
+  const { state } = act(reveal, g, 3, 100);
+  assert.equal(state.lossAction, 3);
+  assert.equal(state.detonated, 3);
+});
+
+test('a chord loss sets lossAction to the chorded number, not the detonated mine', () => {
+  const g = build(W, H, MINES, [CENTRE], [1, 3, 11, 2]);
+  const { state, changed } = act(chord, g, CENTRE, 100);
+  assert.equal(state.lossAction, CENTRE);
+  assert.equal(state.detonated, 13);
+  assert.deepEqual(changed, [2, 13], 'lossAction changes no cell');
+});
+
+test('a win leaves lossAction null', () => {
+  const won = reveal(build(W, H, MINES, SAFE.filter((i) => i !== 14)), 14, 0).state;
+  assert.equal(won.status, 'won');
+  assert.equal(won.lossAction, null);
+});
+
+test('the first reveal deals a board that buildProof solves from the clicked cell, for 50 Expert seeds', () => {
+  const cfg = { width: 30, height: 16, mines: 99 };
+  for (let seed = 0; seed < 50; seed++) {
+    const first = (seed * 97) % 480;
+    const { state } = reveal(newGame(cfg, seed), first, 0);
+    const mines = /** @type {Uint8Array} */ (state.mines);
+    assert.equal(buildProof(30, 16, mines, first).solved, true, `seed ${seed}`);
+  }
+});
+
+test('first reveal on a board no generator can solve falls back and is not guaranteed', () => {
+  // 10x2 with 5 mines has no solvable board (argument in generate.test.js), so
+  // generate exhausts GENERATE_CAP attempts and reveal falls back to placeMines.
+  const cfg = { width: 10, height: 2, mines: 5 };
+  const { state } = reveal(newGame(cfg, 3), 4, 0);
+  assert.notEqual(state.status, 'ready');
+  const mines = /** @type {Uint8Array} */ (state.mines);
+  assert.equal(mines.reduce((a, b) => a + b, 0), 5);
+  assert.equal(buildProof(10, 2, mines, 4).solved, false);
+  assert.deepEqual(mines, placeMines(cfg, 4, mulberry32(3)), 'the fallback is placeMines with a fresh rng from the same seed');
 });
