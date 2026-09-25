@@ -133,6 +133,7 @@ scripts/contrast.mjs     WCAG ratio checks from tokens.css, fails on miss
 scripts/allowlist.mjs    publish allowlist check, fails on unclassified file
 publish-allowlist.json
 docs/spec.md             this file
+docs/tokens-preview.html token review page (phase 3a; not published)
 ```
 
 ## Phases
@@ -386,7 +387,7 @@ The tokens cover:
 - surfaces for covered, revealed, and pressed cells;
 - the eight number colours;
 - flag, mine, detonated-mine, and wrong-flag glyph colours;
-- the focus ring;
+- the two-tone focus indicator (ring and halo);
 - the loss-clue outline;
 - eight discrete proof-map bands, `--proof-0` to `--proof-7`.
 
@@ -394,13 +395,105 @@ Use discrete bands, not `color-mix`, so contrast is checked on exact values.
 
 **Required ratios, all reported as actual numbers:**
 
-- every number colour against every revealed surface, including all eight
-  proof bands: 4.5:1 or better, in both themes;
+- every number colour against the revealed surface, 4.5:1 or better, and
+  the proof-map ink `--num-proof` against all eight proof bands, 4.5:1 or
+  better, in both themes (see "One colour encoding per state" below);
 - glyphs (flag, mine, cross) against their cell surface: 3:1 or better;
-- the focus ring against both the covered and the revealed surface: 3:1 or
-  better;
+- the focus indicator against every surface it can sit on: 3:1 or better
+  from at least one of its two tones (see the two-tone focus rule below);
 - adjacent proof bands must differ visibly, so report the ΔL between
   neighbouring bands.
+
+**Visual concept (decided in phase 3a).** Squared exam paper. Revealed cells
+are paper, covered cells are solid slate (the unproven part of the board),
+and numbers are ink. On a win, the proof map deepens revealed paper through
+eight bands of one ochre hue, from the opening (`--proof-0`, palest) to the
+last forced cell (`--proof-7`, deepest), so the board reads as a proof
+written out in order. Steps are ordered data, so the bands are a sequential
+single-hue ramp with monotonic lightness, never a rainbow. Every band has
+OKLab chroma of at most 0.06 so the number hues stay readable on it. In dark,
+the bands rise in lightness from the revealed surface. Number hues follow the
+Windows order (1 blue, 2 green, 3 red, 4 navy, 5 maroon, 6 teal,
+7 near-black, 8 grey); in dark they lighten to pass and keep that order.
+Mapping steps to bands is phase 3b's job.
+
+**Token rules (decided in phase 3a).**
+
+- **Hex only.** Every colour value in `styles/tokens.css` is a 6-digit hex
+  (`#rrggbb`): no `oklch()`, `rgb()`, `color-mix()` or named colours, so the
+  contrast script checks exactly what ships. One token per line.
+- **Two identical dark blocks.** Light values live in
+  `:root, [data-theme="light"]`. Dark values live in `[data-theme="dark"]`
+  and again in
+  `@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) }`.
+  The two dark blocks must be identical; the script fails if they differ.
+  Non-colour tokens (`--cell-size` of at least 44px, `--gap`, `--radius`,
+  `--font-ui`, `--font-num`, system stacks only, no web fonts) live in a
+  plain `:root` block.
+- **Band ΔE.** Band OKLab L must be strictly monotonic from `--proof-0` to
+  `--proof-7` (decreasing in light, increasing in dark), and each adjacent
+  pair must have an OKLab ΔE of at least 0.03. The script prints L, ΔL and
+  ΔE for every pair. The ramp's length was fixed while number colours still
+  had to pass on the bands. Since digits on bands now use `--num-proof`,
+  that constraint is gone, and the ink has headroom on `--proof-7`.
+- **Two-tone focus.** Focus is drawn as a 2px outline in `--focus-ring`
+  outside the cell plus a 2px inset box-shadow in `--focus-halo` inside it
+  (phase 3b renders both together). Ring against halo must be 3:1 or better,
+  and on every surface (`--bg`, `--cell-covered`, `--cell-pressed`,
+  `--cell-revealed`, every band, `--cell-mine`, `--cell-detonated`) the
+  better of the two must reach 3:1. One tone per theme is dark and the other
+  light, so a single colour no longer has to contrast with both the slate and
+  the deepest band. (A single-colour ring did, which forced the slate to
+  near-black and the ramp to ΔE 0.02.)
+- **Slate.** `--cell-covered` is a real slate: in light, OKLCH L 0.45–0.55
+  at hue ~250 with low chroma, the lightest value that clears 3:1 against
+  `--cell-revealed`. In dark, the equivalent: hue ~250, low chroma, the
+  darkest value that clears 3:1 against the dark revealed surface.
+- **Covered edge.** `--cell-covered-edge` must be 3:1 or better against
+  every band in both themes, so flagged mines on a won board keep a visible
+  boundary against the proof map.
+- **Number separation.** Fitting every number to the 4.5:1 floor gives them
+  equal lightness and collapses the colour convention. So the OKLab ΔE
+  between every pair of number colours (all 28 pairs) must be at least 0.08
+  in each theme. Numbers may sit well above 4.5:1. In light, 4 (navy) is
+  darker than 1 and 5 (maroon) darker than 3. In dark, 4 and 5 are
+  separated from 1 and 3 by lightness and chroma, not only hue. Greys (7, 8)
+  have OKLab chroma of at most 0.02.
+- **One colour encoding per state.** Number hues and proof bands are two
+  colour systems. Putting both on one cell forced the numbers to equal
+  lightness and collapsed the Windows convention. Bands exist only on a won
+  board, when recognising numbers at a glance no longer matters. So while the
+  proof map is shown, every digit renders in one neutral ink, `--num-proof`
+  (light near-black, dark near-white). `--num-1` to `--num-8` appear only
+  on `--cell-revealed` during play and need 4.5:1 there only; their band
+  ratios are printed as report-only. `--num-proof` needs 4.5:1 on every
+  band.
+
+`scripts/contrast.mjs` checks, per theme, failing on any miss (WCAG 2.x
+relative luminance and contrast ratio; OKLab from Björn Ottosson's matrices,
+https://bottosson.github.io/posts/oklab/):
+
+1. every `--num-N` on `--cell-revealed`: 4.5 or better (band ratios
+   printed, report only); then (1b) the 8×8 OKLab ΔE matrix between numbers,
+   every pair 0.08 or more, with the closest pair printed; then (1c)
+   `--num-proof` on every band: 4.5 or better;
+2. 3 or better for flag and wrong-flag glyphs on `--cell-covered`,
+   `--glyph-mine` on `--cell-mine`, and `--glyph-detonated` on
+   `--cell-detonated`;
+3. `--focus-ring` against `--focus-halo`: 3 or better; and for every
+   surface above, max(ring, halo) 3 or better, printing both ratios and which
+   tone carries it;
+4. `--clue-outline` on `--cell-revealed` and every band: 3 or better;
+5. `--cell-covered` on `--cell-revealed`: 3 or better (covered on each band
+   is printed, report only);
+6. `--cell-covered-edge` on every band: 3 or better;
+7. `--text` and `--text-muted` on `--bg`: 4.5 or better;
+8. the band L, ΔE (0.03 floor) and chroma rules above;
+9. a missing token, a non-hex value, a colour function anywhere in the file,
+   or dark blocks that differ.
+
+`docs/tokens-preview.html` is a static review page (tokens.css only, no
+script) showing both themes side by side. It is not published.
 
 **Stop.** Print the contrast table. No components yet.
 
@@ -471,6 +564,9 @@ Use discrete bands, not `color-mix`, so contrast is checked on exact values.
   hidden.
 - `prefers-reduced-motion` removes the proof-map transition. The final state
   is identical.
+- On a win, digits switch from `--num-1`…`--num-8` to `--num-proof` as part
+  of the proof-map transition. Under `prefers-reduced-motion` the switch is
+  instant.
 - Light and dark themes follow `prefers-color-scheme`.
 
 **Stop.** Report what was built, the test count, and anything not verified in

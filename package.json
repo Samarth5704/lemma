@@ -5,7 +5,8 @@
   "scripts": {
     "test": "node --test",
     "typecheck": "tsc -p tsconfig.core.json && tsc -p tsconfig.json",
-    "measure": "node scripts/measure.mjs"
+    "measure": "node scripts/measure.mjs",
+    "contrast": "node scripts/contrast.mjs"
   },
   "devDependencies": {
     "typescript": "^7.0.2"
