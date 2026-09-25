@@ -60,6 +60,38 @@ point.
 - Dialogs close on Escape and restore focus to the trigger.
 - `prefers-reduced-motion` removes motion, never information.
 
+## Design tokens (from phase 3a)
+
+- Concept: squared exam paper. Revealed cells are paper, covered cells are
+  solid slate, numbers are ink. The win proof map deepens revealed paper
+  through eight bands of one ochre hue (`--proof-0` opening, palest, to
+  `--proof-7` last forced cell, deepest). A sequential single-hue ramp,
+  never a rainbow; band chroma is at most 0.06 (OKLab).
+- Every colour in `styles/tokens.css` is a 6-digit hex, one token per line.
+  No `oklch()`, `rgb()`, `color-mix()` or named colours.
+- Dark values appear twice, in `[data-theme="dark"]` and in the
+  `prefers-color-scheme: dark` media block under
+  `:root:not([data-theme="light"])`. The two blocks must be identical. Edit
+  both together.
+- Band OKLab L is strictly monotonic, and adjacent bands differ by an OKLab ΔE
+  of at least 0.03.
+- Focus is two-tone: a 2px `--focus-ring` outline outside plus a 2px inset
+  `--focus-halo` box-shadow inside. Ring vs halo is at least 3:1, and on
+  every surface (bg, covered, pressed, revealed, every band, mine,
+  detonated) at least one tone reaches 3:1. Never draw focus with one tone.
+- `--cell-covered` is a mid slate (hue ~250, low chroma), not near-black.
+  `--cell-covered-edge` is at least 3:1 against every band in both themes.
+- One colour encoding per state. During play digits use `--num-1` to
+  `--num-8`, which need 4.5:1 on `--cell-revealed` only. While the proof
+  map is shown, every digit uses the single neutral ink `--num-proof`
+  (4.5:1 on every band). Never put number hues on a band.
+- Number colours differ from each other by OKLab ΔE of at least 0.08 (all
+  28 pairs, per theme). Never fit every number to one contrast floor; that
+  makes them equally light and collapses the convention. In light, 4 is
+  darker than 1 and 5 darker than 3; in dark, 4 and 5 differ from 1 and 3 in
+  lightness and chroma. Greys have chroma of at most 0.02.
+- `npm run contrast` enforces all of this and exits 1 on any miss.
+
 ## Working rules
 
 - Do not touch files outside the current phase's scope. Do not add

@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lemma tokens preview</title>
+<!-- Phase 3a review page only. Not published; phase 4's allowlist excludes it.
+     Glyphs are plain text placeholders; the final glyphs are phase 3b's call. -->
+<link rel="stylesheet" href="../styles/tokens.css">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 16px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-ui);
+  }
+  h1 { font-size: 1.25rem; margin: 0 0 4px; }
+  .lede { margin: 0 0 16px; color: var(--text-muted); font-size: 0.875rem; }
+  .panels {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  @media (width < 700px) {
+    .panels { grid-template-columns: 1fr; }
+  }
+  .panel {
+    min-width: 0;
+    padding: 12px;
+    border-radius: var(--radius);
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--grid-line);
+  }
+  .panel h2 { font-size: 1rem; margin: 0 0 12px; }
+  .panel h3 { font-size: 0.875rem; margin: 16px 0 8px; color: var(--text-muted); font-weight: 600; }
+  .strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 52px;
+  }
+  .label {
+    margin-top: 4px;
+    font-size: 11px;
+    line-height: 1.2;
+    text-align: center;
+    color: var(--text-muted);
+  }
+  .cell {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: var(--cell-size);
+    height: var(--cell-size);
+    border: var(--gap) solid var(--grid-line);
+    border-radius: var(--radius);
+    font-family: var(--font-num);
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    font-size: 22px;
+    line-height: 1;
+  }
+  .covered { background: var(--cell-covered); border-color: var(--cell-covered-edge); }
+  .pressed { background: var(--cell-pressed); }
+  .revealed { background: var(--cell-revealed); }
+  .flag { color: var(--glyph-flag); }
+  .mine { background: var(--cell-mine); color: var(--glyph-mine); }
+  .detonated { background: var(--cell-detonated); color: var(--glyph-detonated); }
+  .cross {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    color: var(--glyph-wrong-flag);
+    font-size: 30px;
+  }
+  /* Two-tone focus as phase 3b will draw it: ring outside, halo inside. */
+  .focus { outline: 2px solid var(--focus-ring); box-shadow: inset 0 0 0 2px var(--focus-halo); }
+  .clue { outline: 2px dashed var(--clue-outline); outline-offset: -4px; }
+  .n1 { color: var(--num-1); }
+  .n2 { color: var(--num-2); }
+  .n3 { color: var(--num-3); }
+  .n4 { color: var(--num-4); }
+  .n5 { color: var(--num-5); }
+  .n6 { color: var(--num-6); }
+  .n7 { color: var(--num-7); }
+  .n8 { color: var(--num-8); }
+  /* On a won board every digit is one neutral ink. */
+  .np { color: var(--num-proof); }
+  .bands {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .band { display: flex; flex-direction: column; align-items: center; }
+  .pair { display: flex; }
+  .won { display: flex; margin: 0; padding: 0; list-style: none; }
+  .digits { display: flex; flex-wrap: wrap; margin: 0 0 8px; padding: 0; list-style: none; }
+  .big { width: calc(var(--cell-size) * 1.5); height: calc(var(--cell-size) * 1.5); font-size: 33px; }
+  .p0 { background: var(--proof-0); }
+  .p1 { background: var(--proof-1); }
+  .p2 { background: var(--proof-2); }
+  .p3 { background: var(--proof-3); }
+  .p4 { background: var(--proof-4); }
+  .p5 { background: var(--proof-5); }
+  .p6 { background: var(--proof-6); }
+  .p7 { background: var(--proof-7); }
+</style>
+</head>
+<body>
+<h1>Lemma tokens preview</h1>
+<p class="lede">Phase 3a review page. Light and dark via data-theme; glyphs are placeholders.</p>
+
+<div class="panels">
+
+<section class="panel" data-theme="light" aria-labelledby="light-h">
+  <h2 id="light-h">Light</h2>
+  <h3>Board states</h3>
+  <ul class="strip">
+    <li class="item"><span class="cell covered"></span><span class="label">covered</span></li>
+    <li class="item"><span class="cell pressed"></span><span class="label">pressed</span></li>
+    <li class="item"><span class="cell covered flag">⚑</span><span class="label">flagged</span></li>
+    <li class="item"><span class="cell revealed"></span><span class="label">empty</span></li>
+    <li class="item"><span class="cell revealed n1">1</span><span class="label">1</span></li>
+    <li class="item"><span class="cell revealed n2">2</span><span class="label">2</span></li>
+    <li class="item"><span class="cell revealed n3">3</span><span class="label">3</span></li>
+    <li class="item"><span class="cell revealed n4">4</span><span class="label">4</span></li>
+    <li class="item"><span class="cell revealed n5">5</span><span class="label">5</span></li>
+    <li class="item"><span class="cell revealed n6">6</span><span class="label">6</span></li>
+    <li class="item"><span class="cell revealed n7">7</span><span class="label">7</span></li>
+    <li class="item"><span class="cell revealed n8">8</span><span class="label">8</span></li>
+    <li class="item"><span class="cell mine">●</span><span class="label">mine</span></li>
+    <li class="item"><span class="cell detonated">✸</span><span class="label">detonated</span></li>
+    <li class="item"><span class="cell covered flag">⚑<span class="cross">✕</span></span><span class="label">wrong flag</span></li>
+    <li class="item"><span class="cell revealed n2 focus">2</span><span class="label">focus</span></li>
+    <li class="item"><span class="cell covered focus"></span><span class="label">focus (covered)</span></li>
+    <li class="item"><span class="cell revealed n3 clue">3</span><span class="label">clue</span></li>
+  </ul>
+  <h3>Numbers 1–8 at 1.5× on revealed (separation check)</h3>
+  <ul class="digits">
+    <li><span class="cell big revealed n1">1</span></li>
+    <li><span class="cell big revealed n2">2</span></li>
+    <li><span class="cell big revealed n3">3</span></li>
+    <li><span class="cell big revealed n4">4</span></li>
+    <li><span class="cell big revealed n5">5</span></li>
+    <li><span class="cell big revealed n6">6</span></li>
+    <li><span class="cell big revealed n7">7</span></li>
+    <li><span class="cell big revealed n8">8</span></li>
+  </ul>
+  <h3>Proof bands (opening → last forced cell), digits in --num-proof</h3>
+  <ul class="bands">
+    <li class="band"><span class="pair"><span class="cell p0 np">3</span><span class="cell p0 np">7</span></span><span class="label">proof-0</span></li>
+    <li class="band"><span class="pair"><span class="cell p1 np">3</span><span class="cell p1 np">7</span></span><span class="label">proof-1</span></li>
+    <li class="band"><span class="pair"><span class="cell p2 np">3</span><span class="cell p2 np">7</span></span><span class="label">proof-2</span></li>
+    <li class="band"><span class="pair"><span class="cell p3 np">3</span><span class="cell p3 np">7</span></span><span class="label">proof-3</span></li>
+    <li class="band"><span class="pair"><span class="cell p4 np">3</span><span class="cell p4 np">7</span></span><span class="label">proof-4</span></li>
+    <li class="band"><span class="pair"><span class="cell p5 np">3</span><span class="cell p5 np">7</span></span><span class="label">proof-5</span></li>
+    <li class="band"><span class="pair"><span class="cell p6 np">3</span><span class="cell p6 np">7</span></span><span class="label">proof-6</span></li>
+    <li class="band"><span class="pair"><span class="cell p7 np">3</span><span class="cell p7 np">7</span></span><span class="label">proof-7</span></li>
+  </ul>
+  <h3>Won board: flagged mine between deep bands</h3>
+  <ul class="won">
+    <li class="band"><span class="cell p6 np">2</span><span class="label">proof-6</span></li>
+    <li class="band"><span class="cell covered flag">⚑</span><span class="label">flag</span></li>
+    <li class="band"><span class="cell p7 np">3</span><span class="label">proof-7</span></li>
+    <li class="band"><span class="cell covered flag">⚑</span><span class="label">flag</span></li>
+    <li class="band"><span class="cell p7 np">1</span><span class="label">proof-7</span></li>
+  </ul>
+</section>
+
+<section class="panel" data-theme="dark" aria-labelledby="dark-h">
+  <h2 id="dark-h">Dark</h2>
+  <h3>Board states</h3>
+  <ul class="strip">
+    <li class="item"><span class="cell covered"></span><span class="label">covered</span></li>
+    <li class="item"><span class="cell pressed"></span><span class="label">pressed</span></li>
+    <li class="item"><span class="cell covered flag">⚑</span><span class="label">flagged</span></li>
+    <li class="item"><span class="cell revealed"></span><span class="label">empty</span></li>
+    <li class="item"><span class="cell revealed n1">1</span><span class="label">1</span></li>
+    <li class="item"><span class="cell revealed n2">2</span><span class="label">2</span></li>
+    <li class="item"><span class="cell revealed n3">3</span><span class="label">3</span></li>
+    <li class="item"><span class="cell revealed n4">4</span><span class="label">4</span></li>
+    <li class="item"><span class="cell revealed n5">5</span><span class="label">5</span></li>
+    <li class="item"><span class="cell revealed n6">6</span><span class="label">6</span></li>
+    <li class="item"><span class="cell revealed n7">7</span><span class="label">7</span></li>
+    <li class="item"><span class="cell revealed n8">8</span><span class="label">8</span></li>
+    <li class="item"><span class="cell mine">●</span><span class="label">mine</span></li>
+    <li class="item"><span class="cell detonated">✸</span><span class="label">detonated</span></li>
+    <li class="item"><span class="cell covered flag">⚑<span class="cross">✕</span></span><span class="label">wrong flag</span></li>
+    <li class="item"><span class="cell revealed n2 focus">2</span><span class="label">focus</span></li>
+    <li class="item"><span class="cell covered focus"></span><span class="label">focus (covered)</span></li>
+    <li class="item"><span class="cell revealed n3 clue">3</span><span class="label">clue</span></li>
+  </ul>
+  <h3>Numbers 1–8 at 1.5× on revealed (separation check)</h3>
+  <ul class="digits">
+    <li><span class="cell big revealed n1">1</span></li>
+    <li><span class="cell big revealed n2">2</span></li>
+    <li><span class="cell big revealed n3">3</span></li>
+    <li><span class="cell big revealed n4">4</span></li>
+    <li><span class="cell big revealed n5">5</span></li>
+    <li><span class="cell big revealed n6">6</span></li>
+    <li><span class="cell big revealed n7">7</span></li>
+    <li><span class="cell big revealed n8">8</span></li>
+  </ul>
+  <h3>Proof bands (opening → last forced cell), digits in --num-proof</h3>
+  <ul class="bands">
+    <li class="band"><span class="pair"><span class="cell p0 np">3</span><span class="cell p0 np">7</span></span><span class="label">proof-0</span></li>
+    <li class="band"><span class="pair"><span class="cell p1 np">3</span><span class="cell p1 np">7</span></span><span class="label">proof-1</span></li>
+    <li class="band"><span class="pair"><span class="cell p2 np">3</span><span class="cell p2 np">7</span></span><span class="label">proof-2</span></li>
+    <li class="band"><span class="pair"><span class="cell p3 np">3</span><span class="cell p3 np">7</span></span><span class="label">proof-3</span></li>
+    <li class="band"><span class="pair"><span class="cell p4 np">3</span><span class="cell p4 np">7</span></span><span class="label">proof-4</span></li>
+    <li class="band"><span class="pair"><span class="cell p5 np">3</span><span class="cell p5 np">7</span></span><span class="label">proof-5</span></li>
+    <li class="band"><span class="pair"><span class="cell p6 np">3</span><span class="cell p6 np">7</span></span><span class="label">proof-6</span></li>
+    <li class="band"><span class="pair"><span class="cell p7 np">3</span><span class="cell p7 np">7</span></span><span class="label">proof-7</span></li>
+  </ul>
+  <h3>Won board: flagged mine between deep bands</h3>
+  <ul class="won">
+    <li class="band"><span class="cell p6 np">2</span><span class="label">proof-6</span></li>
+    <li class="band"><span class="cell covered flag">⚑</span><span class="label">flag</span></li>
+    <li class="band"><span class="cell p7 np">3</span><span class="label">proof-7</span></li>
+    <li class="band"><span class="cell covered flag">⚑</span><span class="label">flag</span></li>
+    <li class="band"><span class="cell p7 np">1</span><span class="label">proof-7</span></li>
+  </ul>
+</section>
+
+</div>
+</body>
+</html>

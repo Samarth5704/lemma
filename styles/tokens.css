@@ -1,0 +1,137 @@
+/*
+ * Lemma design tokens. Concept: squared exam paper. Revealed cells are paper,
+ * covered cells are solid slate (the unproven part of the board), numbers are
+ * ink. On a win the proof map deepens revealed paper through eight bands of
+ * one ochre hue, opening (--proof-0) to last forced cell (--proof-7).
+ *
+ * Rules, enforced by scripts/contrast.mjs:
+ * - every colour is a 6-digit hex, one token per line;
+ * - the two dark blocks are identical;
+ * - bands have monotonic OKLab L, adjacent OKLab ΔE of at least 0.03, and
+ *   chroma of at most 0.06;
+ * - focus is two-tone: a 2px outline in --focus-ring outside and a 2px inset
+ *   box-shadow in --focus-halo inside. Ring vs halo is at least 3:1, and on
+ *   every surface at least one of the two reaches 3:1;
+ * - --cell-covered-edge is at least 3:1 against every band.
+ */
+
+:root {
+  --cell-size: 44px;
+  --gap: 1px;
+  --radius: 2px;
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-num: ui-monospace, "SF Mono", "Cascadia Mono", "Segoe UI Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+:root, [data-theme="light"] {
+  --bg: #ece8df;
+  --text: #1c232c;
+  --text-muted: #585e66;
+  --grid-line: #c8d2dc;
+  --cell-covered: #657383;
+  --cell-covered-edge: #4c5a69;
+  --cell-pressed: #566474;
+  --cell-revealed: #fcfaf4;
+  --proof-0: #fbf6ef;
+  --proof-1: #f3ebe0;
+  --proof-2: #ece0d0;
+  --proof-3: #e5d6c0;
+  --proof-4: #dcccb4;
+  --proof-5: #d6c1a4;
+  --proof-6: #ceb797;
+  --proof-7: #c7ad88;
+  --num-1: #0c36aa;
+  --num-2: #004f10;
+  --num-3: #8a0705;
+  --num-4: #112878;
+  --num-5: #55101a;
+  --num-6: #003736;
+  --num-7: #1c1c1c;
+  --num-8: #434343;
+  --num-proof: #1c1c1c;
+  --glyph-flag: #ffc0b3;
+  --glyph-wrong-flag: #141414;
+  --cell-mine: #d8d3c8;
+  --glyph-mine: #1c1c1c;
+  --cell-detonated: #b3261e;
+  --glyph-detonated: #fff8f0;
+  --focus-ring: #043490;
+  --focus-halo: #ffffff;
+  --clue-outline: #9e1a8c;
+}
+
+[data-theme="dark"] {
+  --bg: #121418;
+  --text: #e8e4dc;
+  --text-muted: #9ca1a9;
+  --grid-line: #2a3038;
+  --cell-covered: #5d6b7b;
+  --cell-covered-edge: #9eaebe;
+  --cell-pressed: #4f5d6c;
+  --cell-revealed: #1c1d21;
+  --proof-0: #24221f;
+  --proof-1: #2e2921;
+  --proof-2: #383024;
+  --proof-3: #423726;
+  --proof-4: #4d3e29;
+  --proof-5: #56462d;
+  --proof-6: #614e2f;
+  --proof-7: #6b5632;
+  --num-1: #5c9dff;
+  --num-2: #5fc35f;
+  --num-3: #ff6b6b;
+  --num-4: #b4c2ff;
+  --num-5: #e8a3a8;
+  --num-6: #45c8c0;
+  --num-7: #f0f0f0;
+  --num-8: #9a9a9a;
+  --num-proof: #ececec;
+  --glyph-flag: #ffb8a8;
+  --glyph-wrong-flag: #f4efe6;
+  --cell-mine: #2e3138;
+  --glyph-mine: #e8e4dc;
+  --cell-detonated: #c7372b;
+  --glyph-detonated: #fff8f0;
+  --focus-ring: #a5d0ff;
+  --focus-halo: #0b0d11;
+  --clue-outline: #df93cf;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121418;
+    --text: #e8e4dc;
+    --text-muted: #9ca1a9;
+    --grid-line: #2a3038;
+    --cell-covered: #5d6b7b;
+    --cell-covered-edge: #9eaebe;
+    --cell-pressed: #4f5d6c;
+    --cell-revealed: #1c1d21;
+    --proof-0: #24221f;
+    --proof-1: #2e2921;
+    --proof-2: #383024;
+    --proof-3: #423726;
+    --proof-4: #4d3e29;
+    --proof-5: #56462d;
+    --proof-6: #614e2f;
+    --proof-7: #6b5632;
+    --num-1: #5c9dff;
+    --num-2: #5fc35f;
+    --num-3: #ff6b6b;
+    --num-4: #b4c2ff;
+    --num-5: #e8a3a8;
+    --num-6: #45c8c0;
+    --num-7: #f0f0f0;
+    --num-8: #9a9a9a;
+    --num-proof: #ececec;
+    --glyph-flag: #ffb8a8;
+    --glyph-wrong-flag: #f4efe6;
+    --cell-mine: #2e3138;
+    --glyph-mine: #e8e4dc;
+    --cell-detonated: #c7372b;
+    --glyph-detonated: #fff8f0;
+    --focus-ring: #a5d0ff;
+    --focus-halo: #0b0d11;
+    --clue-outline: #df93cf;
+  }
+}
