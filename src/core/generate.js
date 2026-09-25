@@ -1,4 +1,6 @@
 import { cellCount, neighbours } from './grid.js';
+import { buildProof } from './proof.js';
+import { neighbourTable } from './solver.js';
 
 /**
  * @typedef {{ width: number, height: number, mines: number }} Config
@@ -62,4 +64,30 @@ export function placeMines(config, firstClick, rng) {
     out[candidates[i]] = 1;
   }
   return out;
+}
+
+/**
+ * Rerolls until the solver clears the board from the first click without
+ * guessing, for at most `cap` attempts. Every attempt draws from the same rng
+ * stream, so the same seed and first click give the same result.
+ * @param {Config} config
+ * @param {number} firstClick
+ * @param {() => number} rng returns floats in [0, 1)
+ * @param {number} cap maximum number of attempts, a positive integer
+ * @returns {{ ok: true, mines: Uint8Array, attempts: number } | { ok: false, attempts: number }}
+ */
+export function generate(config, firstClick, rng, cap) {
+  if (!Number.isInteger(cap) || cap < 1) {
+    throw new RangeError(`cap must be a positive integer, got ${cap}`);
+  }
+  // One neighbour table for every attempt of this call; the core keeps none
+  // between calls.
+  const table = neighbourTable(config.width, config.height);
+  for (let attempt = 1; attempt <= cap; attempt++) {
+    const mines = placeMines(config, firstClick, rng);
+    if (buildProof(config.width, config.height, mines, firstClick, table).solved) {
+      return { ok: true, mines, attempts: attempt };
+    }
+  }
+  return { ok: false, attempts: cap };
 }

@@ -1,8 +1,17 @@
 import { cellCount, neighbours, computeCounts, flood } from './grid.js';
-import { validateConfig, placeMines } from './generate.js';
+import { validateConfig, placeMines, generate } from './generate.js';
 import { mulberry32 } from './rng.js';
 
 /** @typedef {import('./generate.js').Config} Config */
+
+/**
+ * Attempt cap for no-guess generation on the first reveal. From the phase 2
+ * measurement (docs/spec.md) over centre, edge and corner first clicks: the
+ * most attempts any of 500 Expert seeds needed was 257 (corner); four times
+ * that is 1028, rounded up to 1100.
+ */
+export const GENERATE_CAP = 1100;
+
 /** @typedef {'ready' | 'playing' | 'won' | 'lost'} Status */
 /** @typedef {'reveal' | 'chord' | null} LossCause */
 
@@ -19,6 +28,9 @@ import { mulberry32 } from './rng.js';
  * @property {number | null} detonated
  * @property {LossCause} lossCause null until a loss; 'chord' means a flag the
  *   chord trusted was wrong, 'reveal' means the player opened a mine directly
+ * @property {number | null} lossAction null until a loss; then the index the
+ *   player acted on: the clicked cell for a reveal, the chorded number for a
+ *   chord
  * @property {Uint8Array} cells
  * @property {Uint8Array | null} mines null before the first click; never mutated once set
  * @property {Uint8Array | null} counts Adjacent mine counts. DERIVED from `mines`
@@ -54,6 +66,7 @@ export function newGame(config, seed) {
     status: 'ready',
     detonated: null,
     lossCause: null,
+    lossAction: null,
     cells: new Uint8Array(cellCount(config.width, config.height)),
     mines: null,
     counts: null,
@@ -74,14 +87,18 @@ export function reveal(game, index, now) {
   const next = copy(game);
   if (next.status === 'ready') {
     const config = { width: next.width, height: next.height, mines: next.mineCount };
-    next.mines = placeMines(config, index, mulberry32(next.seed));
+    // No-guess board if one is found within the cap; otherwise a plain random
+    // board. Which one it was is derivable (buildProof(...).solved), so it is
+    // not stored.
+    const generated = generate(config, index, mulberry32(next.seed), GENERATE_CAP);
+    next.mines = generated.ok ? generated.mines : placeMines(config, index, mulberry32(next.seed));
     next.counts = computeCounts(next.width, next.height, next.mines);
     next.firstClick = index;
     next.status = 'playing';
     next.resumedAt = now;
   }
   const { mines, counts } = board(next);
-  if (mines[index]) return lose(next, index, 'reveal', now);
+  if (mines[index]) return lose(next, index, 'reveal', index, now);
   const { opened } = flood(next.width, next.height, counts, next.cells, [index]);
   return settle(next, opened, now);
 }
@@ -121,7 +138,7 @@ export function chord(game, index, now) {
   if (covered.length === 0) return noop(game);
   const next = copy(game);
   const hit = covered.find((n) => mines[n] === 1);
-  if (hit !== undefined) return lose(next, hit, 'chord', now);
+  if (hit !== undefined) return lose(next, hit, 'chord', index, now);
   const { opened } = flood(next.width, next.height, counts, next.cells, covered);
   return settle(next, opened, now);
 }
@@ -231,10 +248,12 @@ function fold(next, now) {
  * @param {Game} next mutated in place; always a fresh copy
  * @param {number} index the mine that was revealed
  * @param {'reveal' | 'chord'} cause
+ * @param {number} action the cell the player acted on: the clicked cell for a
+ *   reveal, the chorded number for a chord
  * @param {number} now
  * @returns {Result}
  */
-function lose(next, index, cause, now) {
+function lose(next, index, cause, action, now) {
   const { mines } = board(next);
   const changed = [index];
   for (let i = 0; i < mines.length; i++) {
@@ -246,6 +265,7 @@ function lose(next, index, cause, now) {
   next.cells[index] = 2;
   next.detonated = index;
   next.lossCause = cause;
+  next.lossAction = action;
   next.status = 'lost';
   fold(next, now);
   return { state: next, changed: sortUnique(changed) };

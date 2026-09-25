@@ -118,9 +118,9 @@ styles/app.css
 src/core/grid.js         dimensions, index<->xy, neighbours, computeCounts, flood
 src/core/rng.js          mulberry32(seed) -> () => float in [0,1)
 src/core/rules.js        newGame, reveal, flag, chord, status, elapsed, counter
-src/core/solver.js       deduce(state) to fixpoint, solveFrom(board, firstClick)
+src/core/solver.js       visibleClues(game), deduce(width, height, clues) to fixpoint
 src/core/generate.js     generate(config, firstClick, rng, cap)
-src/core/proof.js        trace -> per-cell step, rule, clues; explainLoss()
+src/core/proof.js        buildProof -> per-cell step, rule, clues; explainLoss()
 src/store.js
 src/persist.js           load, save, migrate
 src/view/grid.js         roving focus, input modes, cell names
@@ -204,24 +204,103 @@ Solver rules, applied to a fixpoint over the revealed numbers only:
   B∖A contain n_B − n_A mines. If that equals 0, they're safe; if it equals
   |B∖A|, they're mines.
 
-`solveFrom(board, firstClick)` simulates play by revealing proven-safe cells
-(with flood) until no progress is made. It succeeds when every safe cell is
-revealed. Each round records `{ step, rule, cells, clues }`. A cell opened by
-flood inherits the step of the reveal that triggered it. Step 0 is the
-first-click opening.
+Dependency direction: `grid <- solver <- proof <- generate <- rules`, with no
+cycles. `proof.js` describes the game objects it reads structurally rather than
+importing the `Game` type from `rules.js`.
 
-`explainLoss(state, clickedIndex)` branches on the game's `lossCause`.
+**Clue view (decided in phase 2).** `visibleClues(game)` in `solver.js`
+returns an `Int8Array`: the adjacent-mine count for each revealed cell, and −1
+for every covered and every flagged cell. A detonated mine is not a number, so
+it also reads −1. `deduce(width, height, clues)` takes only this array. The
+solver never receives mines or hidden counts, so soundness and "ignores flags"
+hold by construction.
 
-For `lossCause: 'reveal'`, it runs `deduce` on the state just before the
-fatal click, without revealing anything new. It returns one of:
+`deduce` applies the single-clue rule and the subset rule to a fixpoint.
+Cells decided earlier in the same call count as known. The subset rule only
+compares clue pairs within Chebyshev distance 2, since unknown sets cannot
+overlap beyond that. It returns
+`{ safe: number[], mines: number[], why: Map<cell, { rule: 'single' | 'subset', clues: number[], deps: number[] }> }`.
+`safe` and `mines` are ascending. `clues` holds the indices of the numbers the
+rule was applied to: one for `'single'`, two for `'subset'`. `deps` holds the
+cells decided earlier in the same call whose status the rule relied on (the
+decided covered neighbours of the clues used), ascending. Both are direct
+pointers: `deduce` never merges sets transitively, so generation does not pay
+for chains. `explainChain(why, cell)` in `proof.js` walks `deps`
+transitively and returns every number involved, ascending. Only `explainLoss`
+calls it; `buildProof` and `generate` never do. The interleaved timing check
+showed that recording `deps` changed Expert p95 by −3.2% / +3.3% / +2.6%
+(centre / edge / corner), within the 10% limit, so it is always on.
 
-- `{ provable: 'mine', clues }` — the clicked cell was provably a mine;
-- `{ provable: 'no', safe: index, clues }` — it wasn't provable, but this
-  other cell was provably safe.
+**No module state (decided in phase 2).** `src/core` holds no module-level
+mutable state; a test enforces this. The neighbour table
+(`neighbourTable(width, height)` in `solver.js`) is built once per
+`generate()` call and passed down to `buildProof` and `deduce` as an optional
+last argument. A direct `buildProof` or `deduce` call builds its own.
 
-For `lossCause: 'chord'`, the player did not guess the detonated cell; a flag
-the chord trusted was wrong. It identifies the wrong flag(s) adjacent to the
-chorded number instead of asking whether the detonated cell was provable.
+**Proof trace (decided in phase 2).** `buildProof(width, height, mines,
+firstClick)` in `proof.js` simulates play. Step 0 floods the first click. Each
+later step runs `deduce`, reveals every proven-safe cell with flood, and
+increments the step. It stops when all safe cells are revealed
+(`solved: true`) or when `deduce` proves no safe cell (`solved: false`). It
+records, per cell:
+
+- `stepOf` (`Int16Array`, −1 for mines and unreached cells);
+- `ruleOf`: `'opening'` (the first click only), `'single'`, `'subset'`,
+  `'flood'`, or `null`;
+- `cluesOf`: the rule's clues for `'single'` and `'subset'`; for `'flood'`, a
+  one-element array holding the zero that opened the cell; `[]` for
+  `'opening'`; `null` where the rule is `null`.
+
+A cell opened by a cascade gets `'flood'` and the step of the reveal that
+triggered it, including cells in the first click's own flood. It never
+inherits the triggering cell's rule. The trace also returns
+`summary: { steps, singleCells, subsetCells, floodCells }`, where `steps` is
+the last step reached.
+
+**Generator.** `generate(config, firstClick, rng, cap)` loops `placeMines`
+(one rng stream across attempts) and then `buildProof`. It returns
+`{ ok: true, mines, attempts }` on the first solved board, or
+`{ ok: false, attempts: cap }`. The same seed and first click give an
+identical result. On the first reveal, `rules.js` calls
+`generate(config, i, mulberry32(seed), GENERATE_CAP)`. On `{ ok: false }` it
+falls back to `placeMines(config, i, mulberry32(seed))`. That board is not
+guaranteed, which is derivable from `buildProof(...).solved`, so nothing
+extra is stored.
+
+**`GENERATE_CAP = 1100`.** The measurement below, over all three first-click
+positions, saw at most 257 attempts for an Expert board (corner). Four times
+that is 1028, rounded up to 1100. The earlier centre-only measurement had set
+it to 1000 (173 × 4 = 692).
+
+**`lossAction` (decided in phase 2).** `Game` has
+`lossAction: number | null`. It is null until a loss. On a loss it holds the
+index the player acted on: the clicked cell for a reveal, or the chorded
+number for a chord. Like the rest of a loss, it changes no cell other than
+the detonated index.
+
+**`explainLoss(state)` (decided in phase 2)** is in `proof.js` and takes a
+lost state only. It throws otherwise.
+
+- **Reveal loss:** it builds the clues from the state with the detonated cell
+  treated as covered, which is exactly the pre-click state because a loss
+  changes cells only at the detonated index. It runs `deduce` and returns
+  one of:
+  - `{ kind: 'reveal', provable: 'mine', clues }` when the clicked cell was
+    provably a mine;
+  - `{ kind: 'reveal', provable: 'no', safe, clues }` otherwise. `safe` is
+    the provably safe cell nearest the clicked one (Chebyshev distance, ties
+    broken by the lowest index);
+  - `{ kind: 'reveal', provable: 'none' }` when nothing was provable, which
+    can only happen on an ungenerated fallback board.
+
+  In the `'mine'` and `'no'` results, `clues` is `explainChain` of the clicked
+  or named cell: every number the proof used, including the upstream numbers
+  behind cells it relied on, not just the last one.
+- **Chord loss:** the player did not guess the detonated cell; a flag the
+  chord trusted was wrong. It returns
+  `{ kind: 'chord', chorded, wrongFlags, detonated }`. `wrongFlags` holds the
+  chorded number's flagged neighbours that are not mines, ascending. Reading
+  mines is allowed here because this is a post-mortem, not a deduction.
 
 **Tests:**
 
@@ -236,9 +315,11 @@ chorded number instead of asking whether the detonated cell was provable.
   stuck, and the generator rejects that board. This documents rule 9.
 - A wrong player flag in the state does not change any deduction.
 - For 200 seeds per difficulty, every generated board is cleared by
-  `solveFrom` from its first click.
-- An impossible config (for example, 9×9 with 70 mines) returns
-  `{ ok: false }` after exactly `cap` attempts.
+  `buildProof` from its first click.
+- An impossible config returns `{ ok: false }` after exactly `cap` attempts.
+  The config must be one where success is impossible by argument, not a seed
+  that happened to fail. The test uses 10×2 with 5 mines, and the argument is
+  in the test.
 - In the proof trace, every safe cell has exactly one step, and every clue
   cited at step s was revealed at a step before s.
 - **The loss invariant.** For 200 generated boards, a simulated player
@@ -249,17 +330,50 @@ chorded number instead of asking whether the detonated cell was provable.
 - `explainLoss` returns `provable: 'mine'` with the correct clues for a click
   on a deducible mine. It returns `provable: 'no'` and a genuinely safe cell
   for a click on a non-deducible mine.
+- `explainLoss` cites the upstream number when a mine is proved through a
+  chain. The same holds for the named safe cell in a `'no'` result.
+- The first reveal on a board no generator can solve falls back and is not
+  guaranteed. This runs through the real `newGame`/`reveal` path.
+- No `src/core` file holds module-level mutable state.
 
-**Measurement (`scripts/measure.mjs`):** for 500 seeds per difficulty with the
-first click at the centre, report attempts per board (median, p95, max) and
-generation time in ms (median, p95, max) under Node.
+**Measurement (`scripts/measure.mjs`):** for 500 seeds per difficulty and
+per first-click position, report attempts per board (median, p95, max), the
+share generated on the first attempt, generation time in ms (median, p95,
+max), and failures at the cap, under Node. The positions are the centre, the
+edge (the middle of the top row), and the corner (index 0).
 
-**Stop.** Report the measurement table. Decision rule:
+**Stop.** Report the measurement table. Decision rule, applied to the worst
+of the three positions (the original rule was centre-only, which understated
+the worst case: corners need the most attempts):
 
-- If Expert p95 is under 150 ms, keep rerolling.
+- If Expert p95 is under 150 ms at every position, keep rerolling.
 - Otherwise, stop and do not implement perturbation until it has been
   discussed. Phones are slower than the machine that measured, so the
   margin matters.
+
+**Measured (phase 2).** Node v24.19.0 on an Intel Core i5-10210U @ 1.60GHz,
+running on battery (discharging, 13–20% charge). 500 seeds per difficulty and
+position, temporary cap 5000, nearest-rank percentiles, and a 20-board warm-up
+per size and position before timing.
+
+| Difficulty   | Position | Attempts median | p95 | max | First attempt | ms median | ms p95 | ms max | Failures at cap |
+|--------------|----------|----------------:|----:|----:|--------------:|----------:|-------:|-------:|----------------:|
+| Beginner     | centre   |               1 |   2 |   5 |         80.6% |      0.16 |   1.10 |   4.84 |               0 |
+| Beginner     | edge     |               1 |   2 |   4 |         80.4% |      0.12 |   0.31 |   0.63 |               0 |
+| Beginner     | corner   |               1 |   3 |   5 |         72.6% |      0.17 |   0.43 |   0.76 |               0 |
+| Intermediate | centre   |               1 |   5 |   9 |         55.8% |      0.74 |   2.20 |   4.62 |               0 |
+| Intermediate | edge     |               1 |   5 |   9 |         50.2% |      1.17 |   3.57 |   7.52 |               0 |
+| Intermediate | corner   |               2 |   6 |   9 |         42.6% |      0.86 |   2.47 |   5.75 |               0 |
+| Expert       | centre   |              18 |  73 | 173 |          4.8% |     29.85 | 136.17 | 316.07 |               0 |
+| Expert       | edge     |              18 |  71 | 211 |          4.6% |     31.26 | 134.10 | 371.91 |               0 |
+| Expert       | corner   |              20 |  96 | 257 |          3.4% |     23.02 | 112.53 | 397.95 |               0 |
+
+The worst Expert p95 is 136.17 ms (centre), under 150 ms, so rerolling stays.
+The margin is thin and the timing is noisy on this machine. The same code
+measured 55.94 ms at the centre on mains power the day before, and an earlier
+battery run gave 152.42 ms, just over the line. Attempt counts are
+deterministic for these seeds, so they, and GENERATE_CAP, do not depend on
+the machine. Remeasure on mains power before treating 150 ms as settled.
 
 ### Phase 3a: Design tokens: review checkpoint
 
