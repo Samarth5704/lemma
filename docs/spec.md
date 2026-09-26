@@ -121,15 +121,18 @@ src/core/rules.js        newGame, reveal, flag, chord, status, elapsed, counter
 src/core/solver.js       visibleClues(game), deduce(width, height, clues) to fixpoint
 src/core/generate.js     generate(config, firstClick, rng, cap)
 src/core/proof.js        buildProof -> per-cell step, rule, clues; explainLoss()
-src/store.js
-src/persist.js           load, save, migrate
-src/view/grid.js         roving focus, input modes, cell names
+src/store.js             createStore: state, dispatch, subscribe, derived proof/loss
+src/persist.js           load, save, migrate, restoreGame, DIFFICULTIES
+src/view/grid.js         board DOM, roving focus, input events
+src/view/names.js        cellView and cellName (pure, tested without a DOM)
+src/view/keys.js         nextFocus and activationFor (pure)
 src/view/hud.js          counter, timer, flag-mode toggle, difficulty, new game
 src/view/result.js       loss explanation, win summary, proof table
 src/main.js
 test/*.test.js
 scripts/measure.mjs      generator attempt/time distribution
 scripts/contrast.mjs     WCAG ratio checks from tokens.css, fails on miss
+scripts/serve.mjs        static dev server on 127.0.0.1 (phase 3b; browser checks)
 scripts/allowlist.mjs    publish allowlist check, fails on unclassified file
 publish-allowlist.json
 docs/spec.md             this file
@@ -568,6 +571,103 @@ script) showing both themes side by side. It is not published.
   of the proof-map transition. Under `prefers-reduced-motion` the switch is
   instant.
 - Light and dark themes follow `prefers-color-scheme`.
+
+**Dev server (decided in phase 3b).** Module scripts do not load from
+`file://`, so every browser check uses `npm run serve`
+(`scripts/serve.mjs`): `node:http` only, bound to `127.0.0.1`, port 8080 or
+`PORT`. It serves GET and HEAD with explicit MIME types for html, css, js,
+mjs and svg, maps `/` to `index.html`, and refuses (403) any path that does
+not decode, contains a backslash, null byte or colon, has any segment
+starting with `.` (so `..`, `.git` and dotfiles are never served), or
+resolves outside the repo root after following symlinks. It is not
+published. `.claude/launch.json` is local and gitignored.
+
+**Store (decided in phase 3b).** `createStore({ storage, now, newSeed })`;
+`main.js` passes `localStorage`, `performance.now()` and a
+`crypto.getRandomValues` seed. API: `getState()` returns
+`{ settings, game, flagMode }`; `dispatch(action)` with `reveal`, `flag`,
+`chord` (each with `index`), `toggleFlagMode`, `setDifficulty`
+(`difficulty`), `newGame`, `pause`, `resume`; `subscribe(fn)` calls
+`fn(state, { changed, rebuild, statusChanged })`. `changed` comes straight
+from the rules. `newGame` and `setDifficulty` set `rebuild: true`;
+`setDifficulty` to the current difficulty is a no-op. A rules no-op (no
+changed cells, no clock or status change) keeps the same game object and
+emits nothing. The store also has `elapsed()` for the timer, and
+`getProof()` and `getLossInfo()`, which build `buildProof` / `explainLoss`
+on first read after a win / loss, memoise them on the game object, and are
+never persisted. Flag mode is session-only. `hasProgress(game)` (exported)
+is true when the game is playing and has a flag or more revealed cells than
+the first click's flood alone; New game and a difficulty change ask for
+confirmation only then, and the dialog names the action ("Switch to Expert
+and abandon this game?").
+
+**Persistence (decided in phase 3b).** Key `"lemma"`, `version: 1`. Payload
+`{ version, settings: { difficulty }, game }`, where `game` holds `width`,
+`height`, `mineCount`, `seed`, `firstClick`, `status`, `detonated`,
+`lossCause`, `lossAction`, `gen`, `cells` (a string of 0/1/2) and
+`accumulatedMs` (= `elapsed(game, now)` at save time). Mines, counts,
+`resumedAt`, the proof and the loss explanation are never stored.
+
+- `migrate(raw)`: version 1 passes through; a higher integer version is an
+  unknown future version (run on defaults in memory, never write); anything
+  else is invalid and loads defaults (writes allowed).
+- Load regenerates mines by replaying `reveal(newGame(config, seed),
+  firstClick, 0)`, the same path as the first reveal including the
+  fallback. A loaded `'playing'` game resumes its clock from the load time.
+- A game is dropped (settings kept) when: `gen !== GENERATOR_VERSION`; its
+  size does not match the saved difficulty's preset; `cells` has the wrong
+  length or a character other than 0/1/2; the fields do not fit the status
+  (for example `'ready'` with a revealed cell, `'playing'` with its first
+  click covered or every safe cell revealed, `'won'` with a covered safe
+  cell or an unflagged mine, `'lost'` whose detonated cell is not a
+  revealed mine); or, after regenerating, a revealed cell is a mine other
+  than the detonated one.
+- The store saves after every state-changing dispatch. `pagehide`
+  dispatches `pause`, which folds the running time and saves.
+- **`GENERATOR_VERSION`** (in `generate.js`, currently 1) must be bumped
+  whenever the (config, seed, firstClick) -> mines mapping can change:
+  `placeMines`, `generate`, `mulberry32`, `deduce`, `neighbourTable`,
+  `buildProof`, `flood`, `neighbours`, `computeCounts`, `GENERATE_CAP`, or
+  the first-reveal path in `rules.js`. `test/golden.test.js` ("generator
+  output is unchanged; bump GENERATOR_VERSION if this fails") hashes the
+  mines for three fixed (seed, firstClick) pairs per difficulty.
+
+**Views (decided in phase 3b).**
+
+- `bandOf(step, maxStep)` in `proof.js`: 0 when `maxStep` is 0, otherwise
+  `round(step * 7 / maxStep)`. Cells the proof never reached get no band.
+- `cellView` / `cellName` in `src/view/names.js`. States: `covered`,
+  `flagged`, `revealed`, `mine`, `detonated`, `wrong-flag`, `safe-shown`.
+  Names: "Row r, column c, " then "covered", "flagged", "empty",
+  "1 adjacent mine" or "n adjacent mines"; after a win, revealed cells
+  append "opened by first click", "opened at step N by cascade", "proved at
+  step N by single-clue rule" or "proved at step N by subset rule"; after a
+  loss, "mine", "mine, detonated" or "flagged, not a mine".
+- **Safe cell after a `'no'` loss:** rendered as revealed paper with its
+  digit (`data-state="safe-shown"`), named "..., provably safe, shown after
+  loss", and listed in the explanation with its clues, which get the dashed
+  outline. A lone paper cell among slate is the covered/revealed pair the
+  contrast script already checks at 3:1, so no new token is needed.
+- `nextFocus(index, key, ctrlKey, width, height)` in `src/view/keys.js`:
+  arrows clamp, Home/End stay in the row, Ctrl+Home/End go to the first and
+  last cell, other keys return null. `activationFor(game, index, flagMode)`
+  gives `chord` for a revealed cell in either mode, else `flag` in flag
+  mode, else `reveal`.
+- **Activation runs only on the button's `click` event** (mouse, Enter and
+  Space). `keydown` handles only navigation and F. Handling Enter or Space
+  in keydown as well would activate twice.
+- Glyphs are an inline SVG sprite (`flag`, `mine`, `burst`, `cross`) in
+  `currentColor`, inserted with `createElementNS` and `<use>`. The mine is
+  a round ball with four orthogonal stubs and the detonated burst is a
+  hollow eight-point star, so they differ in shape, not only colour; a test
+  checks the sprite. A wrong flag is the flag with the cross over it.
+- A game that loads already won or lost shows its result without moving
+  focus; focus moves to the heading only when the game ends in this page.
+- The confirm dialog returns focus to its trigger: New game, or the checked
+  difficulty radio (not the unchecked one that was clicked).
+- On a won board digits use `--num-proof`, and `background-color` and
+  `color` transition over 400ms with a delay of band x 60ms;
+  `prefers-reduced-motion` removes the transition.
 
 **Stop.** Report what was built, the test count, and anything not verified in
 a real browser.

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Lemma</title>
+  <link rel="stylesheet" href="styles/tokens.css">
+  <link rel="stylesheet" href="styles/app.css">
+  <script type="module" src="src/main.js"></script>
+</head>
+<body>
+  <!-- Glyphs: original simple shapes drawn in currentColor. -->
+  <svg class="sprite" aria-hidden="true" focusable="false">
+    <symbol id="g-flag" viewBox="0 0 24 24">
+      <path fill="currentColor" d="M8 3h2v15H8z"/>
+      <path fill="currentColor" d="M10 3.5 19.5 8 10 12.5z"/>
+      <path fill="currentColor" d="M5 18.5h10v2.5H5z"/>
+    </symbol>
+    <!-- Mine: a round ball with four short stubs. No diagonals, so it never
+         reads as the detonated burst below. -->
+    <symbol id="g-mine" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="6.5" fill="currentColor"/>
+      <path stroke="currentColor" stroke-width="2.5" stroke-linecap="round" d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3"/>
+    </symbol>
+    <!-- Detonated: a large eight-point star with a hollow centre. -->
+    <symbol id="g-burst" viewBox="0 0 24 24">
+      <path fill="currentColor" fill-rule="evenodd" d="M12.0 0.8 L13.9 7.4 L19.9 4.1 L16.6 10.1 L23.2 12.0 L16.6 13.9 L19.9 19.9 L13.9 16.6 L12.0 23.2 L10.1 16.6 L4.1 19.9 L7.4 13.9 L0.8 12.0 L7.4 10.1 L4.1 4.1 L10.1 7.4Z M15 12a3 3 0 1 0 -6 0a3 3 0 1 0 6 0Z"/>
+    </symbol>
+    <symbol id="g-cross" viewBox="0 0 24 24">
+      <path stroke="currentColor" stroke-width="3" stroke-linecap="round" d="M4 4l16 16M20 4 4 20"/>
+    </symbol>
+  </svg>
+
+  <header class="masthead">
+    <h1>Lemma</h1>
+    <p class="tagline">Minesweeper where every board is provable.</p>
+  </header>
+
+  <main>
+    <section class="hud" aria-label="Game controls">
+      <p class="stat"><span class="stat-label" id="counter-label">Mines left</span> <span id="counter" class="stat-value" aria-labelledby="counter-label counter">10</span></p>
+      <p class="stat"><span class="stat-label" id="timer-label">Time</span> <span id="timer" class="stat-value" role="timer" aria-labelledby="timer-label">0:00</span></p>
+      <button id="flag-mode" class="toggle" type="button" aria-pressed="false">Flag mode</button>
+      <button id="new-game" type="button">New game</button>
+      <fieldset id="difficulty" class="difficulty">
+        <legend>Difficulty</legend>
+        <label><input type="radio" name="difficulty" value="beginner" checked> Beginner</label>
+        <label><input type="radio" name="difficulty" value="intermediate"> Intermediate</label>
+        <label><input type="radio" name="difficulty" value="expert"> Expert</label>
+      </fieldset>
+    </section>
+
+    <div class="board-wrap">
+      <div id="board" class="board" role="grid" aria-label="Minefield"></div>
+    </div>
+    <p id="inspector" class="inspector" hidden></p>
+
+    <section id="result" class="result" aria-labelledby="result-heading" hidden>
+      <h2 id="result-heading" tabindex="-1"></h2>
+      <div id="result-body"></div>
+    </section>
+
+    <p class="help">Enter or Space opens a cell or chords a number. F flags. Arrow keys, Home and End move. Right-click flags; on touch, use Flag mode.</p>
+
+    <div id="live" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
+
+    <dialog id="confirm" aria-labelledby="confirm-text">
+      <form method="dialog">
+        <p id="confirm-text"></p>
+        <div class="dialog-actions">
+          <button value="cancel" autofocus>Keep playing</button>
+          <button id="confirm-ok" value="confirm">New game</button>
+        </div>
+      </form>
+    </dialog>
+  </main>
+</body>
+</html>

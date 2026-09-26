@@ -112,6 +112,17 @@ export function buildProof(width, height, mines, firstClick, table) {
 }
 
 /**
+ * The proof-map band (0..7) for a step, spreading steps 0..maxStep evenly
+ * over the eight bands. A proof with no step beyond the opening is band 0.
+ * @param {number} step
+ * @param {number} maxStep
+ */
+export function bandOf(step, maxStep) {
+  if (maxStep === 0) return 0;
+  return Math.round((step * 7) / maxStep);
+}
+
+/**
  * Every number behind a decision: the cell's own clues, plus the clues of
  * every cell it relied on, transitively through `deps`. Only explainLoss
  * calls this; buildProof and generate never do, so generation never pays for
