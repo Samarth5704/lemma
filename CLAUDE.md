@@ -110,6 +110,21 @@ point.
 - Browser checks use `npm run serve` (127.0.0.1:8080); modules do not load
   from `file://`.
 
+## Publishing and CI (from phase 4)
+
+- `publish-allowlist.json` lists every tracked file by exact path (no
+  globs) under `publish` or `exclude`. `npm run allowlist` fails on an
+  unclassified tracked file, a listed file that does not exist, a file in
+  both lists, a published file referencing an unpublished local file, and
+  any root-absolute URL (`/...`) in a published file: Pages serves the site
+  under `/lemma/`, so published references stay relative.
+- Any new published file must be added to `publish` in the same change, and
+  any other new tracked file to `exclude`.
+- Deploy uploads only `_site`, staged by `node scripts/allowlist.mjs --stage
+  _site`. CI and deploy run typecheck, tests, contrast, allowlist and the
+  README `[REWRITE` gate. Action versions are majors verified with
+  `gh api repos/<owner>/<repo>/releases/latest`, never from memory.
+
 ## Working rules
 
 - Do not touch files outside the current phase's scope. Do not add
