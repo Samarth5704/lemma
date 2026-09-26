@@ -134,7 +134,9 @@ scripts/measure.mjs      generator attempt/time distribution
 scripts/contrast.mjs     WCAG ratio checks from tokens.css, fails on miss
 scripts/serve.mjs        static dev server on 127.0.0.1 (phase 3b; browser checks)
 scripts/allowlist.mjs    publish allowlist check, fails on unclassified file
-publish-allowlist.json
+publish-allowlist.json   every tracked file, by exact path, as publish or exclude
+.github/workflows/ci.yml     gates on PRs and pushes to main (phase 4)
+.github/workflows/deploy.yml gates, stage the publish set, deploy to Pages
 docs/spec.md             this file
 docs/tokens-preview.html token review page (phase 3a; not published)
 ```
@@ -695,6 +697,66 @@ a real browser.
   - attribution;
   - a Design notes section. Its draft is provided separately; do not invent
     one.
+
+**Allowlist (decided in phase 4).** `publish-allowlist.json` has exactly two
+keys, `publish` and `exclude`, each an array of exact repo-relative paths: no
+globs, no leading `/` or `./`, forward slashes only, no duplicates. The
+publish set is `index.html`, `styles/tokens.css`, `styles/app.css` and every
+`src/**/*.js` the page loads. Everything else tracked is excluded, including
+`test/`, `scripts/`, `docs/`, package files, tsconfigs, `CLAUDE.md`,
+`README.md`, the dotfiles and `.github/`. `scripts/allowlist.mjs` reads the
+tracked files from `git ls-files -z` (`execFileSync`, no shell) and fails,
+naming each offender, on:
+
+1. a tracked file that is in neither list;
+2. a listed file that does not exist;
+3. a file in both lists;
+4. a published file that references a local file outside the publish set:
+   `./` and `../` import specifiers in JS (static, re-export, side-effect,
+   dynamic and JSDoc `import()`), `href`/`src` (and `action`, `formaction`,
+   `poster`) in HTML, and `url()`/`@import` in CSS; a reference that climbs
+   out of the repo also fails;
+5. any root-absolute URL (`/x`, not `//host`) in a published file, because
+   Pages serves the site under `/lemma/`. In JS this is any quoted string of
+   that form.
+
+`--stage <dir>` copies the publish set into `dir`, preserving paths, only
+after every check passes. It refuses, before anything else, a `dir` that
+exists and is not an empty directory. The pure checks are exported and
+tested in `test/allowlist.test.js`. Any new published file is added to
+`publish` in the same change.
+
+**CI and deploy (built in phase 4).** Actions are pinned to major versions
+checked with `gh api repos/<owner>/<repo>/releases/latest` on 2026-09-26:
+`actions/checkout@v7`, `actions/setup-node@v7`, `actions/configure-pages@v6`,
+`actions/upload-pages-artifact@v5`, `actions/deploy-pages@v5`.
+
+- `.github/workflows/ci.yml`, job `ci`, on `pull_request` and push to `main`,
+  `permissions: contents: read`: checkout; setup-node (`lts/*`, npm cache);
+  `npm ci`; `npm run typecheck`; `npm test`; `npm run contrast`;
+  `npm run allowlist`; and a README gate that fails while `README.md`
+  contains `[REWRITE`.
+- `.github/workflows/deploy.yml`, on push to `main` and `workflow_dispatch`,
+  `permissions: contents: read, pages: write, id-token: write`, concurrency
+  group `pages` without cancelling in progress. Job `build` repeats every CI
+  gate, runs `node scripts/allowlist.mjs --stage _site`, then
+  `configure-pages` and `upload-pages-artifact` with `path: _site`. Job
+  `deploy` needs `build`, uses environment `github-pages` with the
+  `page_url` output as its URL, and runs `deploy-pages`. Nothing outside
+  `_site` is uploaded. `_site/` is gitignored.
+- The live site is https://samarth5704.github.io/lemma/. The repository's
+  Pages source must be set to "GitHub Actions".
+
+**README (built in phase 4).** Sections, in order: what Lemma is (with the
+live URL), how to play, how the guarantee works, the soundness trade-off
+(with the 10×2 / 5-mine parity argument), measurement (a fresh
+`npm run measure` table with its Node version and CPU), running locally,
+project layout, accessibility (what was verified and how), known
+limitations, Design notes (the provided draft, verbatim), attribution.
+
+**Stop.** Report the verified action tags, the allowlist output, a dry-run
+staging listing, test counts, typecheck and contrast output, files changed,
+bugs found with their regression tests, and anything unverified.
 
 ## Do not build
 
