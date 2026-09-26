@@ -92,6 +92,24 @@ point.
   lightness and chroma. Greys have chroma of at most 0.02.
 - `npm run contrast` enforces all of this and exits 1 on any miss.
 
+## Store, persistence and UI (from phase 3b)
+
+- The store is the only writer of state and storage. Views dispatch actions
+  and redraw from `subscribe(state, { changed, rebuild, statusChanged })`;
+  during play the grid updates only `changed`, and on a win or loss it
+  redraws every cell once.
+- Saves hold inputs only (`cells` as a 0/1/2 string, seed, first click, and
+  so on). Mines are regenerated on load by replaying the first reveal. Bump
+  `GENERATOR_VERSION` (generate.js) whenever that mapping can change; the
+  golden test fails to remind you. The trigger list is in the spec.
+- Activation runs only on the button's `click` event. `keydown` handles
+  only navigation and F. Never handle Enter or Space in keydown.
+- Glyphs come from the inline SVG sprite in `index.html`, in
+  `currentColor`. The mine and the detonated burst must differ in shape,
+  not only colour.
+- Browser checks use `npm run serve` (127.0.0.1:8080); modules do not load
+  from `file://`.
+
 ## Working rules
 
 - Do not touch files outside the current phase's scope. Do not add
@@ -111,6 +129,7 @@ point.
 - `npm test`
 - `npm run measure` (generator attempts and timing; phase 2)
 - `npm run contrast` (from phase 3a)
+- `npm run serve` (dev server on 127.0.0.1:8080, from phase 3b)
 - `npm run allowlist` (from phase 4)
 
 Test files are not typechecked (would require @types/node); this is deliberate.

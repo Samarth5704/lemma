@@ -1,0 +1,213 @@
+/* Lemma app styles. Every colour comes from tokens.css. */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  padding: 16px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  line-height: 1.45;
+  overflow-x: hidden;
+}
+
+main, .masthead { max-width: 1400px; margin-inline: auto; }
+
+.sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+.masthead h1 { margin: 0; font-size: 1.6rem; letter-spacing: 0.02em; }
+.tagline { margin: 0 0 12px; color: var(--text-muted); }
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0; border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Two-tone focus on every control: ring outside, halo inset. */
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 0;
+  box-shadow: inset 0 0 0 2px var(--focus-halo);
+}
+h2[tabindex="-1"]:focus { outline: 2px solid var(--focus-ring); box-shadow: inset 0 0 0 2px var(--focus-halo); }
+
+/* ---- HUD ---- */
+
+.hud {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-bottom: 12px;
+}
+.stat { margin: 0; display: flex; align-items: baseline; gap: 6px; }
+.stat-label { color: var(--text-muted); font-size: 0.9rem; }
+.stat-value { font-family: var(--font-num); font-size: 1.25rem; font-variant-numeric: tabular-nums; min-width: 3ch; }
+
+button, input { font: inherit; }
+
+.hud button, .dialog-actions button {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--cell-covered-edge);
+  border-radius: var(--radius);
+  background: var(--cell-revealed);
+  color: var(--text);
+  cursor: pointer;
+}
+.toggle[aria-pressed="true"] {
+  background: var(--text);
+  color: var(--bg);
+  font-weight: 700;
+}
+.toggle[aria-pressed="true"]::before { content: "\2713\00a0"; }
+
+.difficulty {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 12px;
+  margin: 0;
+  padding: 0 8px 4px;
+  border: 1px solid var(--grid-line);
+  border-radius: var(--radius);
+}
+.difficulty legend { padding: 0 4px; color: var(--text-muted); font-size: 0.9rem; }
+.difficulty label { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; cursor: pointer; }
+.difficulty input { width: 20px; height: 20px; margin: 0; accent-color: var(--focus-ring); }
+
+/* ---- Board ---- */
+
+.board-wrap {
+  max-width: 100%;
+  overflow: auto;
+  /* room for the outside focus ring on edge cells */
+  padding: 3px;
+}
+.board {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  width: max-content;
+  padding: var(--gap);
+  background: var(--grid-line);
+  touch-action: manipulation;
+}
+.row { display: flex; gap: var(--gap); }
+.row > [role="gridcell"] { display: block; }
+
+.cell {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--cell-size);
+  height: var(--cell-size);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius);
+  background-color: var(--cell-revealed);
+  color: var(--text);
+  font: 700 1.3rem/1 var(--font-num);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.cell[data-state="covered"],
+.cell[data-state="flagged"],
+.cell[data-state="wrong-flag"] {
+  background-color: var(--cell-covered);
+  box-shadow: inset 0 0 0 1px var(--cell-covered-edge);
+  color: var(--glyph-flag);
+}
+.cell[data-state="covered"]:active { background-color: var(--cell-pressed); }
+.cell[data-state="mine"] { background-color: var(--cell-mine); color: var(--glyph-mine); }
+.cell[data-state="detonated"] { background-color: var(--cell-detonated); color: var(--glyph-detonated); }
+.cell[data-state="safe-shown"] { background-color: var(--cell-revealed); }
+
+.cell[data-n="1"] { color: var(--num-1); }
+.cell[data-n="2"] { color: var(--num-2); }
+.cell[data-n="3"] { color: var(--num-3); }
+.cell[data-n="4"] { color: var(--num-4); }
+.cell[data-n="5"] { color: var(--num-5); }
+.cell[data-n="6"] { color: var(--num-6); }
+.cell[data-n="7"] { color: var(--num-7); }
+.cell[data-n="8"] { color: var(--num-8); }
+
+.glyph { grid-area: 1 / 1; width: 26px; height: 26px; }
+.glyph-cross { color: var(--glyph-wrong-flag); width: 30px; height: 30px; }
+
+.cell:focus-visible {
+  z-index: 1;
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 0;
+  box-shadow: inset 0 0 0 2px var(--focus-halo);
+}
+
+/* Loss clues: dashed outline, drawn inside so it never collides with focus. */
+.cell[data-clue]::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border: 2px dashed var(--clue-outline);
+  border-radius: var(--radius);
+  pointer-events: none;
+}
+
+/* ---- Proof map (won board) ---- */
+
+.board[data-status="won"] .cell {
+  transition: background-color 400ms ease-out, color 400ms ease-out;
+}
+.board[data-status="won"] .cell[data-state="revealed"] { color: var(--num-proof); }
+.board[data-status="won"] .cell[data-band="0"] { background-color: var(--proof-0); transition-delay: 0ms; }
+.board[data-status="won"] .cell[data-band="1"] { background-color: var(--proof-1); transition-delay: 60ms; }
+.board[data-status="won"] .cell[data-band="2"] { background-color: var(--proof-2); transition-delay: 120ms; }
+.board[data-status="won"] .cell[data-band="3"] { background-color: var(--proof-3); transition-delay: 180ms; }
+.board[data-status="won"] .cell[data-band="4"] { background-color: var(--proof-4); transition-delay: 240ms; }
+.board[data-status="won"] .cell[data-band="5"] { background-color: var(--proof-5); transition-delay: 300ms; }
+.board[data-status="won"] .cell[data-band="6"] { background-color: var(--proof-6); transition-delay: 360ms; }
+.board[data-status="won"] .cell[data-band="7"] { background-color: var(--proof-7); transition-delay: 420ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .board .cell, .board[data-status="won"] .cell { transition: none; }
+}
+
+.inspector {
+  min-height: 1.45em;
+  margin: 8px 0 0;
+  font-family: var(--font-num);
+  font-size: 0.95rem;
+}
+
+/* ---- Result ---- */
+
+.result { margin-top: 16px; max-width: 60ch; }
+.result h2 { margin: 0 0 6px; font-size: 1.25rem; }
+.result p { margin: 0 0 8px; }
+.takeaway { font-weight: 600; }
+.note { color: var(--text-muted); }
+.cell-list { margin: 0 0 8px; padding-left: 1.25em; }
+
+.help { margin-top: 16px; color: var(--text-muted); font-size: 0.9rem; max-width: 60ch; }
+
+/* ---- Dialog ---- */
+
+dialog {
+  max-width: min(90vw, 28rem);
+  border: 1px solid var(--cell-covered-edge);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text);
+  padding: 16px;
+}
+dialog::backdrop { background: rgb(0 0 0 / 0.4); }
+.dialog-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }

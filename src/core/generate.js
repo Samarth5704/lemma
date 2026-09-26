@@ -7,6 +7,17 @@ import { neighbourTable } from './solver.js';
  */
 
 /**
+ * Version of the (config, seed, firstClick) -> mines mapping. Saves store only
+ * those inputs and regenerate the mines on load, so a save made under another
+ * version is dropped. Bump this whenever that mapping can change: placeMines,
+ * generate, mulberry32 (rng.js), deduce or neighbourTable (solver.js),
+ * buildProof (proof.js), flood, neighbours or computeCounts (grid.js), or
+ * GENERATE_CAP and the first-reveal path in rules.js. test/golden.test.js
+ * fails when the output changes.
+ */
+export const GENERATOR_VERSION = 1;
+
+/**
  * Accepts any positive-integer size. Restricting play to the three presets is
  * the UI's job, not the core's.
  * @param {Config} config
